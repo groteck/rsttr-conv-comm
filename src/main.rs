@@ -31,36 +31,20 @@ mod grammar {
         pub _separator: (),
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Body {
-        #[rust_sitter::leaf(pattern = r"\n|\n\n")]
-        _prefix: (),
-        #[rust_sitter::leaf(pattern = r".+", transform = |v| v.to_string())]
-        pub value: Option<String>,
-    }
-
-    #[derive(Debug)]
-    pub struct FooterLine {
-        #[rust_sitter::leaf(pattern = r".+", transform = |v| v.to_string())]
-        pub tag: String,
-        #[rust_sitter::leaf(text = ":")]
-        pub _separator: (),
-        #[rust_sitter::leaf(pattern = r"\s")]
-        _whitespace: (),
-        #[rust_sitter::leaf(pattern = r".+", transform = |v| v.to_string())]
+        #[rust_sitter::leaf(pattern = r"[^:]+", transform = |v| v.to_string())]
         pub value: String,
     }
 
-    #[derive(Debug)]
+    #[derive(Debug, PartialEq)]
     pub struct Footer {
-        #[rust_sitter::leaf(pattern = r"\n\n")]
-        _prefix: (),
-        #[rust_sitter::repeat(non_empty = true)]
-        #[rust_sitter::delimited(
-            #[rust_sitter::leaf(text = "\n")]
-            ()
-        )]
-        pub lines: Vec<FooterLine>,
+        #[rust_sitter::leaf(pattern = r"[^:]+", transform = |v| v.to_string())]
+        pub tag: String,
+        #[rust_sitter::leaf(text = ": ")]
+        _separator: (),
+        #[rust_sitter::leaf(pattern = r"[^:]+", transform = |v| v.to_string())]
+        pub value: String,
     }
 }
 
@@ -99,7 +83,7 @@ This is a body"#;
         assert_eq!(type_.value, "feat".to_string());
         assert_eq!(type_.scope, None);
         assert_eq!(tree.description, "this is a commit decription".to_string());
-        assert_eq!(body.value, Some("This is a body".to_string()));
+        assert_eq!(body.value, "\n\nThis is a body".to_string());
     }
 
     #[test]
@@ -109,11 +93,17 @@ This is a body"#;
 BREAKING CHANGE: `extends` key in config file is now used for extending other config files"#;
         let tree = grammar::parse(input).unwrap();
         let type_ = tree.type_;
-        let body = tree.body.unwrap();
+        let body = tree.body;
+        let footer = tree.footer.unwrap();
         assert_eq!(type_.value, "feat".to_string());
         assert_eq!(type_.scope, None);
         assert_eq!(tree.description, "this is a commit decription".to_string());
-        assert_eq!(body.value, None);
+        assert_eq!(body, None);
+        assert_eq!(footer.tag, "\n\nBREAKING CHANGE".to_string());
+        assert_eq!(
+            footer.value,
+            "`extends` key in config file is now used for extending other config files".to_string()
+        );
     }
 }
 
